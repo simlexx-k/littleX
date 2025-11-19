@@ -1,8 +1,10 @@
-import { TweetForm } from "../organisms/tweet-form";
+import { AITweetComposer } from "../organisms/ai-tweet-composer";
 import { TweetNode } from "@/nodes/tweet-node";
 import { User } from "@/store/tweetSlice";
 import { TweetCard } from "../organisms/tweet-card";
 import { useSearchParams } from "next/navigation";
+import { useAppDispatch } from "@/store/useStore";
+import { createTweetAction } from "@/modules/tweet/actions";
 
 type MainFeedProps = {
   feeds: TweetNode[];
@@ -22,6 +24,15 @@ const MainFeed = ({
 }: MainFeedProps) => {
   const searchParams = useSearchParams();
   const activeTab = searchParams.get("tab") || "home";
+  const dispatch = useAppDispatch();
+
+  // Handle tweet submission from AI composer
+  const handleTweetSubmit = (content: string, metadata?: { aiAssisted: boolean }) => {
+    dispatch(createTweetAction({
+      content,
+      aiAssisted: metadata?.aiAssisted
+    }));
+  };
 
   // Determine which data to display based on the URL parameter
   const getActiveData = (): TweetNode[] => {
@@ -80,7 +91,7 @@ const MainFeed = ({
         {(activeTab === "home" || activeTab === "profile") && (
           <div className="flex-shrink-0 bg-background/80 backdrop-blur-sm sticky top-0 z-10 mb-3">
             <div className="py-3">
-              <TweetForm />
+              <AITweetComposer onSubmit={handleTweetSubmit} />
             </div>
           </div>
         )}
@@ -106,6 +117,7 @@ const MainFeed = ({
                   likes={tweet.likes}
                   created_at={tweet.created_at}
                   profile={profile}
+                  aiAssisted={tweet.aiAssisted}
                 />
               ))
             ) : (

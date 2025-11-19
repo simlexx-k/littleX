@@ -56,6 +56,7 @@ import {
   DropdownMenuTrigger,
 } from "../atoms/dropdown-menu";
 import { getTimeDifference } from "@/modules/tweet/utils";
+import { AIAssistedBadge } from "../atoms/ai-assisted-badge";
 
 // Define interfaces
 export interface TweetCardProps {
@@ -66,6 +67,7 @@ export interface TweetCardProps {
   comments: Comment[];
   profile: User;
   created_at?: string;
+  aiAssisted?: boolean;
 }
 
 interface LikesDialogProps {
@@ -173,11 +175,11 @@ function CommentsDialog({
                         </span>
                         {comment.username.toLowerCase() ===
                           loginUsername.toLowerCase() && (
-                          <ActionDropdown
-                            onEdit={() => onEditComment(comment)}
-                            onDelete={() => onDeleteComment(comment.id)}
-                          />
-                        )}
+                            <ActionDropdown
+                              onEdit={() => onEditComment(comment)}
+                              onDelete={() => onDeleteComment(comment.id)}
+                            />
+                          )}
                       </div>
                       <p className="text-sm mt-1">{comment.content}</p>
                     </div>
@@ -288,6 +290,7 @@ export function TweetCard({
   comments,
   profile,
   created_at,
+  aiAssisted,
 }: TweetCardProps): JSX.Element {
   const dispatch = useAppDispatch();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
@@ -380,6 +383,11 @@ export function TweetCard({
           <p className="text-card-foreground mb-2 whitespace-pre-wrap wrap">
             {content}
           </p>
+          {aiAssisted && (
+            <div className="mt-2">
+              <AIAssistedBadge />
+            </div>
+          )}
           {/* <div className="flex flex-wrap gap-1.5 mb-3">
             {Array(3)
               .fill(0)
@@ -408,9 +416,8 @@ export function TweetCard({
                 />
                 <button
                   onClick={() => setIsLikesDialogOpen(true)}
-                  className={`hover:text-foreground text-nowrap ${
-                    liked ? "text-foreground" : "text-muted-foreground"
-                  }`}
+                  className={`hover:text-foreground text-nowrap ${liked ? "text-foreground" : "text-muted-foreground"
+                    }`}
                 >
                   {likes.length} Likes
                 </button>

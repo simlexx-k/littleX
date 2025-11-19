@@ -16,9 +16,9 @@ export const fetchTweetsAction = createAsyncThunk(
 );
 export const createTweetAction = createAsyncThunk(
   "tweet/create",
-  async (content: string, { rejectWithValue }) => {
+  async (data: { content: string; aiAssisted?: boolean }, { rejectWithValue }) => {
     try {
-      const response = await TweetApi.createTweet(content);
+      const response = await TweetApi.createTweet(data.content, data.aiAssisted);
 
       return response;
     } catch (error) {

@@ -17,6 +17,7 @@ export const TweetApi = {
         embedding: tweet?.embedding ?? [],
         likes: Array.isArray(tweet?.likes) ? tweet.likes : [],
         comments: Array.isArray(tweet?.comments) ? tweet.comments : [],
+        aiAssisted: tweet?.ai_assisted || false,
       } as TweetNode;
     }) as TweetNode[];
   },
@@ -36,15 +37,17 @@ export const TweetApi = {
         embedding: tweet?.embedding ?? [],
         likes: Array.isArray(tweet?.likes) ? tweet.likes : [],
         comments: Array.isArray(tweet?.comments) ? tweet.comments : [],
+        aiAssisted: tweet?.ai_assisted || false,
       } as TweetNode;
     }) as TweetNode[];
 
     return result;
   },
 
-  createTweet: async (content: string) => {
+  createTweet: async (content: string, aiAssisted?: boolean) => {
     const response = await private_api.post("/walker/create_tweet", {
       content,
+      ai_assisted: aiAssisted || false,
     });
     const tweets = response.data?.reports || [];
     const tweet = tweets[0]?.[0] || {};
@@ -57,6 +60,7 @@ export const TweetApi = {
       likes: [],
       username: "",
       created_at: tweet?.context?.created_at || "",
+      aiAssisted: tweet?.context?.ai_assisted || false,
     };
 
     return tweetData;

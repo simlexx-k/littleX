@@ -66,7 +66,8 @@ impl Tweet.get_info {
             content=self.content,
             embedding=self.embedding,
             likes=[i.username for i in [self->:Like:->]],
-            comments=[{"username": [i<--(`?Profile)][0].username, "id": jid(i), "content": i.content} for i in [self-->(`?Comment)]]
+            comments=[{"username": [i<--(`?Profile)][0].username, "id": jid(i), "content": i.content} for i in [self-->(`?Comment)]],
+            ai_assisted=self.ai_assisted
         );
     }
 
@@ -111,7 +112,11 @@ impl load_user_profiles.report_profiles {
 
 impl create_tweet.tweet {
         embedding = vectorizer.fit_transform([self.content]).toarray().tolist();
-        tweet_node = here +>:Post():+> Tweet(content=self.content, embedding=embedding);
+        tweet_node = here +>:Post():+> Tweet(
+            content=self.content,
+            embedding=embedding,
+            ai_assisted=self.ai_assisted
+        );
         grant(tweet_node[0], level=ConnectPerm);
         report tweet_node;
     }
@@ -126,4 +131,232 @@ impl load_feed.load {
 impl load_feed.report_feed {
         self.results.sort(key=lambda x:dict:x['similarity'][0], reverse=True);
         report self.results;
+}
+
+# AI Feature Implementations
+impl generate_ai_suggestions {
+    if len(context) < 3 {
+        return [];
+    }
+    
+    tone_instruction = TONE_PROMPTS.get(tone, TONE_PROMPTS["casual"]);
+    prompt = f"""You are a helpful social media writing assistant. Generate {num} tweet suggestions for: {context}
+
+Style: {tone_instruction}
+
+Return ONLY a JSON array: [{{"text": "suggestion", "confidence": 0.9}}]""";
+
+    print(f"[AI] Generating suggestions for: {context[:50]}...");
+    try {
+        response = completion(
+            model="openrouter/google/gemini-2.5-flash-lite",
+            messages=[{"role": "user", "content": prompt}],
+            api_key=OPENROUTER_API_KEY,
+            temperature=0.8,
+            max_tokens=2000
+        );
+        content = response.choices[0].message.content;
+    } except Exception as e {
+        print(f"[AI] Primary model failed: {e}. Trying fallback to google/gemini-2.0-flash-exp:free...");
+        try {
+            response = completion(
+                model="openrouter/google/gemini-2.0-flash-exp:free",
+                messages=[{"role": "user", "content": prompt}],
+                api_key=OPENROUTER_API_KEY,
+                temperature=0.8,
+                max_tokens=2000
+            );
+            content = response.choices[0].message.content;
+        } except Exception as e2 {
+            print(f"[AI] Fallback failed: {e2}");
+            return [];
+        }
+    }
+
+    try {
+        # Clean up markdown code blocks if present
+        if "```json" in content {
+            content = content.replace("```json", "").replace("```", "");
+        }
+        suggestions = json.loads(content);
+        return suggestions[:num];
+    } except Exception as e {
+        print(f"[AI] Error parsing response: {e}");
+        return [];
+    }
+}
+
+impl generate_ai_hashtags {
+    if len(content) < 10 {
+        return [];
+    }
+    
+    prompt = f"""Generate {num} hashtags for: {content}
+
+Return ONLY a JSON array: [{{"tag": "#example", "relevance": 0.95}}]""";
+
+    print(f"[AI] Generating hashtags for: {content[:50]}...");
+    try {
+        response = completion(
+            model="openrouter/google/gemini-2.5-flash-lite",
+            messages=[{"role": "user", "content": prompt}],
+            api_key=OPENROUTER_API_KEY,
+            temperature=0.7,
+            max_tokens=2000
+        );
+        content = response.choices[0].message.content;
+    } except Exception as e {
+        print(f"[AI] Primary model failed: {e}. Trying fallback...");
+        try {
+            response = completion(
+                model="openrouter/google/gemini-2.0-flash-exp:free",
+                messages=[{"role": "user", "content": prompt}],
+                api_key=OPENROUTER_API_KEY,
+                temperature=0.7,
+                max_tokens=2000
+            );
+            content = response.choices[0].message.content;
+        } except Exception as e2 {
+            print(f"[AI] Fallback failed: {e2}");
+            return [];
+        }
+    }
+
+    try {
+        if "```json" in content {
+            content = content.replace("```json", "").replace("```", "");
+        }
+        hashtags = json.loads(content);
+        return hashtags[:num];
+    } except Exception as e {
+        print(f"[AI] Error: {e}");
+        return [];
+    }
+}
+
+impl improve_ai_text {
+    if len(text) < 5 {
+        return {"original": text, "improved": text, "changes": []};
+    }
+    
+    tone_instruction = TONE_PROMPTS.get(style, TONE_PROMPTS["casual"]);
+    prompt = f"""Improve this text: {text}
+
+Style: {tone_instruction}
+
+Return ONLY a JSON object: {{"original": "...", "improved": "...", "changes": ["change1"]}}""";
+
+    print(f"[AI] Improving text: {text[:50]}...");
+    try {
+        response = completion(
+            model="openrouter/google/gemini-2.5-flash-lite",
+            messages=[{"role": "user", "content": prompt}],
+            api_key=OPENROUTER_API_KEY,
+            temperature=0.7,
+            max_tokens=2000
+        );
+        content = response.choices[0].message.content;
+    } except Exception as e {
+        print(f"[AI] Primary model failed: {e}. Trying fallback...");
+        try {
+            response = completion(
+                model="openrouter/google/gemini-2.0-flash-exp:free",
+                messages=[{"role": "user", "content": prompt}],
+                api_key=OPENROUTER_API_KEY,
+                temperature=0.7,
+                max_tokens=2000
+            );
+            content = response.choices[0].message.content;
+        } except Exception as e2 {
+            print(f"[AI] Fallback failed: {e2}");
+            return {"original": text, "improved": text, "changes": ["Error generating improvement"]};
+        }
+    }
+
+    try {
+        if "```json" in content {
+            content = content.replace("```json", "").replace("```", "");
+        }
+        improvement = json.loads(content);
+        return improvement;
+    } except Exception as e {
+        print(f"[AI] Error: {e}");
+        return {"original": text, "improved": text, "changes": ["Error parsing response"]};
+    }
+}
+
+impl autocomplete_ai {
+    if len(partial) < 3 {
+        return [];
+    }
+    
+    prompt = f"""Complete this text {num} ways: {partial}
+
+Return ONLY a JSON array: ["completion 1", "completion 2"]""";
+
+    print(f"[AI] Autocompleting: {partial[:50]}...");
+    try {
+        response = completion(
+            model="openrouter/google/gemini-2.5-flash-lite",
+            messages=[{"role": "user", "content": prompt}],
+            api_key=OPENROUTER_API_KEY,
+            temperature=0.8,
+            max_tokens=2000
+        );
+        content = response.choices[0].message.content;
+    } except Exception as e {
+        print(f"[AI] Primary model failed: {e}. Trying fallback...");
+        try {
+            response = completion(
+                model="openrouter/google/gemini-2.0-flash-exp:free",
+                messages=[{"role": "user", "content": prompt}],
+                api_key=OPENROUTER_API_KEY,
+                temperature=0.8,
+                max_tokens=2000
+            );
+            content = response.choices[0].message.content;
+        } except Exception as e2 {
+            print(f"[AI] Fallback failed: {e2}");
+            return [];
+        }
+    }
+
+    try {
+        if "```json" in content {
+            content = content.replace("```json", "").replace("```", "");
+        }
+        completions = json.loads(content);
+        return completions[:num];
+    } except Exception as e {
+        print(f"[AI] Error: {e}");
+        return [];
+    }
+}
+
+impl ai_suggest_content.generate {
+    print(f"[Walker] ai_suggest_content: context='{self.context[:30]}...', tone='{self.tone}'");
+    suggestions = generate_ai_suggestions(self.context, self.tone, self.num_suggestions);
+    print(f"[Walker] Returning {len(suggestions)} suggestions");
+    report suggestions;
+}
+
+impl ai_generate_hashtags.generate {
+    print(f"[Walker] ai_generate_hashtags: content='{self.content[:30]}...'");
+    hashtags = generate_ai_hashtags(self.content, self.num_hashtags);
+    print(f"[Walker] Returning {len(hashtags)} hashtags");
+    report hashtags;
+}
+
+impl ai_improve_text.improve {
+    print(f"[Walker] ai_improve_text: text='{self.text[:30]}...', style='{self.style}'");
+    improvement = improve_ai_text(self.text, self.style);
+    print(f"[Walker] Text improved");
+    report improvement;
+}
+
+impl ai_autocomplete.complete {
+    print(f"[Walker] ai_autocomplete: partial='{self.partial[:30]}...'");
+    completions = autocomplete_ai(self.partial, self.num_suggestions);
+    print(f"[Walker] Returning {len(completions)} completions");
+    report completions;
 }

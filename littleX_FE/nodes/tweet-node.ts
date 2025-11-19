@@ -6,6 +6,7 @@ export interface TweetNode {
   likes: string[]; // or array of user IDs
   comments: Comment[]; // or array of comment IDs
   created_at?: "";
+  aiAssisted?: boolean; // Whether tweet was created with AI assistance
 }
 export interface Comment {
   id: string;

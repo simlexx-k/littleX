@@ -2,3 +2,5 @@
 venv/
 cloudflared/config.yml
 .env
+test_ai_features.sh
+improvement_plan.md

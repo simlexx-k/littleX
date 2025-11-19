@@ -12,6 +12,7 @@ services:
       - mongodb
     env_file:
       - .env
+      - ./littleX_BE/.env
     environment:
       DATABASE_HOST: ${DATABASE_HOST:-mongodb://littlex:littlex@mongodb:27017/?directConnection=true}
     volumes:
