@@ -1,2 +1,4 @@
 /.jac_mypy_cache/
 venv/
+cloudflared/config.yml
+.env

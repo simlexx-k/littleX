@@ -1,0 +1,76 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./littleX_BE
+      dockerfile: dockerfile
+    container_name: littlex-backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongodb
+    env_file:
+      - .env
+    environment:
+      DATABASE_HOST: ${DATABASE_HOST:-mongodb://littlex:littlex@mongodb:27017/?directConnection=true}
+    volumes:
+      - ./littleX_BE:/app
+    networks:
+      - littlex
+
+  mongodb:
+    image: mongo:latest
+    container_name: littlex-mongodb
+    restart: unless-stopped
+    command: [ "--replSet", "rs0", "--bind_ip_all", "--keyFile", "/data/keyfile/mongo-keyfile" ]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: littlex
+      MONGO_INITDB_ROOT_PASSWORD: littlex
+    volumes:
+      - littlex-mongo-data:/data/db
+      - ./littleX_BE/mongo-keyfile:/data/keyfile/mongo-keyfile:ro
+    networks:
+      - littlex
+    healthcheck:
+      test: echo "try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongodb:27017'}]}) }" | mongosh -u littlex -p littlex --authenticationDatabase admin --quiet
+      interval: 5s
+      timeout: 30s
+      start_period: 0s
+      retries: 30
+
+  mongo_express:
+    image: mongo-express:1.0.2-20-alpine3.19
+    container_name: littlex-mongo-express
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: littlex
+      ME_CONFIG_MONGODB_ADMINPASSWORD: littlex
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_BASICAUTH_USERNAME: littlex
+      ME_CONFIG_BASICAUTH_PASSWORD: littlex
+    ports:
+      - "8081:8081"
+    networks:
+      - littlex
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: littlex-cloudflared
+    restart: unless-stopped
+    depends_on:
+      - backend
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TUNNEL_TOKEN}
+    networks:
+      - littlex
+
+volumes:
+  littlex-mongo-data:
+
+
+networks:
+  littlex:
+    driver: bridge
