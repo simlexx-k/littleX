@@ -1,5 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { TweetApi } from "../services";
+import { AuthService } from "@/modules/users/auth-service";
 
 export const fetchTweetsAction = createAsyncThunk(
   "tweet/loadFeeds",
@@ -121,7 +122,11 @@ export const getUserProfileAction = createAsyncThunk(
   "user/getProfile",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await TweetApi.getProfile();
+      const currentUser = AuthService.getCurrentUser();
+      // Use profile_username if available, otherwise try to parse from email or use empty string
+      const username = currentUser?.profile_username || (currentUser?.email ? currentUser.email.split('@')[0] : undefined);
+
+      const response = await TweetApi.getProfile(username);
 
       return response;
     } catch (error) {

@@ -1,7 +1,7 @@
 "use client";
 
 import useAppNavigation from "@/_core/hooks/useAppNavigation";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { AuthService } from "../auth-service";
 import { useAppDispatch, useAppSelector } from "@/store/useStore";
 import {
@@ -18,6 +18,7 @@ import {
   registerUser,
   resetPassword,
 } from "../userActions";
+import { useToast } from "@/ds/atoms/hooks/use-toast";
 
 export function useAuth() {
   const dispatch = useAppDispatch();
@@ -30,6 +31,9 @@ export function useAuth() {
     isLoading,
   } = useAppSelector((state) => state.users);
   const router = useAppNavigation();
+  const { toast } = useToast();
+  const [sessionExpiry, setSessionExpiry] = useState<number | null>(null);
+  const [sessionWarning, setSessionWarning] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -47,10 +51,14 @@ export function useAuth() {
     if (success) {
       if (successMessage === "Login successful") {
         router.navigate("/");
+        setSessionWarning(false);
+        setSessionExpiry(AuthService.getSessionExpiry());
       } else if (successMessage === "Registration successful") {
         router.navigate("/auth/login");
       } else if (successMessage === "Logout successful") {
         router.navigate("/auth/login");
+        setSessionWarning(false);
+        setSessionExpiry(null);
       }
       dispatch(resetSuccess());
     }
@@ -94,6 +102,54 @@ export function useAuth() {
   const logout = useCallback(async () => {
     dispatch(logoutUser());
   }, [dispatch]);
+
+  useEffect(() => {
+    const expiry = AuthService.getSessionExpiry();
+    if (!expiry) {
+      setSessionWarning(false);
+    }
+    setSessionExpiry(expiry);
+  }, [initialCheckComplete, successMessage]);
+
+  useEffect(() => {
+    if (!sessionExpiry) {
+      return;
+    }
+    const timeLeft = sessionExpiry - Date.now();
+    if (timeLeft <= 0) {
+      toast({
+        title: "Session expired",
+        description: "You have been logged out for security reasons.",
+        variant: "destructive",
+      });
+      setSessionExpiry(null);
+      logout();
+      return;
+    }
+
+    const warningThreshold = 60 * 1000;
+    if (timeLeft <= warningThreshold && !sessionWarning) {
+      toast({
+        title: "Session expiring soon",
+        description: "Extend your work by logging in again before the timeout.",
+      });
+      setSessionWarning(true);
+    }
+
+    const timer = setTimeout(() => {
+      toast({
+        title: "Session expired",
+        description: "Please log in again to continue.",
+        variant: "destructive",
+      });
+      setSessionExpiry(null);
+      logout();
+    }, timeLeft);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [sessionExpiry, sessionWarning, logout, toast]);
 
   return {
     login,

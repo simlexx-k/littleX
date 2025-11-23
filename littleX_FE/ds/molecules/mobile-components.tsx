@@ -25,6 +25,8 @@ import {
   SheetTrigger,
 } from "../atoms/sheet";
 import { useAppTheme } from "../use-app-theme";
+import { InsightsPanel } from "@/ds/molecules/insights-panel";
+import { useInsights } from "@/modules/insights";
 
 const banumas = Baumans({
   weight: "400",
@@ -261,6 +263,15 @@ export const MobileRightSidebar = ({
 }) => {
   const { toggleTheme, isDark } = useAppTheme();
 
+  const {
+    trendingTopics,
+    communities,
+    threadInsights,
+    isLoading: insightsLoading,
+    error: insightsError,
+    refreshInsights,
+  } = useInsights();
+
   const [activeTab, setActiveTab] = useState<"suggested" | "following">(
     "suggested"
   );
@@ -383,6 +394,15 @@ export const MobileRightSidebar = ({
                 </div>
               )}
             </div>
+            <InsightsPanel
+              trendingTopics={trendingTopics}
+              communities={communities}
+              threadInsights={threadInsights}
+              isLoading={insightsLoading}
+              error={insightsError}
+              onRefresh={refreshInsights}
+              className="border-t"
+            />
           </div>
         </SheetContent>
       </Sheet>

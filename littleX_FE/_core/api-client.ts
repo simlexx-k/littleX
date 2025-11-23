@@ -1,5 +1,6 @@
 import axios from "axios";
 import { APP_KEYS } from "./keys";
+import { localStorageUtil } from "./utils";
 
 // Get the API URL from environment variables
 export const API_URL =
@@ -26,10 +27,8 @@ private_api.interceptors.request.use(
   (config) => {
     // Only run on client side
     if (typeof window !== "undefined") {
-      const token_obj = localStorage.getItem(APP_KEYS.TOKEN);
-      const token = token_obj ? JSON.parse(token_obj)?.value : null;
+      const token = localStorageUtil.getItem<string>(APP_KEYS.TOKEN);
       if (token) {
-        // TOOD:
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
@@ -47,7 +46,9 @@ const handleResponseError = (error: any) => {
     if (error.response.status === 401) {
       // Handle unauthorized (e.g., redirect to login)
       if (typeof window !== "undefined") {
-        localStorage.removeItem("token");
+        localStorageUtil.removeItem(APP_KEYS.TOKEN);
+        localStorageUtil.removeItem(APP_KEYS.USER);
+        localStorageUtil.removeItem(APP_KEYS.SESSION_EXPIRY);
         // Could redirect to login page here
       }
     }

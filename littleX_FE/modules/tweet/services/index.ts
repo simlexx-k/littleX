@@ -1,11 +1,17 @@
 import { Comment, TweetNode } from "@/nodes/tweet-node";
 import { private_api } from "@/_core/api-client";
+import { APP_KEYS } from "@/_core/keys";
+import { localStorageUtil } from "@/_core/utils";
 import { User, UserProfile } from "@/store/tweetSlice";
+
 
 export const TweetApi = {
   // Create a new tweet
   getTweets: async () => {
-    const res = await private_api.post("/walker/load_feed", {});
+    const token = localStorageUtil.getItem<string>(APP_KEYS.TOKEN);
+    const res = await private_api.post("/walker/load_feed", {
+      token: token || "",
+    });
     const data = res.data?.reports?.[0] || [];
 
     return data.map((entry: any) => {
@@ -45,9 +51,11 @@ export const TweetApi = {
   },
 
   createTweet: async (content: string, aiAssisted?: boolean) => {
+    const token = localStorageUtil.getItem<string>(APP_KEYS.TOKEN) || "";
     const response = await private_api.post("/walker/create_tweet", {
       content,
       ai_assisted: aiAssisted || false,
+      token,
     });
     const tweets = response.data?.reports || [];
     const tweet = tweets[0]?.[0] || {};
@@ -138,15 +146,26 @@ export const TweetApi = {
     return filterUsers;
   },
 
-  getProfile: async () => {
-    const response = await private_api.post("/walker/get_profile", {});
+  getProfile: async (username?: string) => {
+    const token = localStorageUtil.getItem<string>(APP_KEYS.TOKEN);
+    const response = await private_api.post("/walker/get_profile", {
+      username: username || "",
+      token: token || "",
+    });
 
     const data = response.data?.reports?.[0] || [];
+    // If data is an array (list of profiles), take the first one
+    const profileData = Array.isArray(data) ? data[0] : data;
+
+    if (!profileData) {
+      throw new Error("Profile not found");
+    }
+
     const profile: UserProfile = {
-      following: data.followers,
+      following: profileData.followers || [],
       user: {
-        id: data.user.id,
-        username: data.user.context.username,
+        id: profileData.user.id,
+        username: profileData.user.context.username,
       },
     };
     return profile;
@@ -164,8 +183,10 @@ export const TweetApi = {
       return { error: "Username already exists" };
     }
 
+    const token = localStorageUtil.getItem<string>(APP_KEYS.TOKEN);
     const response = await private_api.post("/walker/update_profile", {
       new_username: username,
+      token: token || "",
     });
     const data = response.data?.reports?.[0] || [];
     const profile: User = {

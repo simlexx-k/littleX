@@ -13,6 +13,8 @@ import {
   followRequestAction,
   unFollowRequestAction,
 } from "@/modules/tweet";
+import { InsightsPanel } from "@/ds/molecules/insights-panel";
+import { useInsights } from "@/modules/insights";
 
 interface RightTweetSidebarProps {
   userData: {
@@ -34,6 +36,15 @@ const RightTweetSidebar = ({
     localStorageUtil.getItem<
       { content: string; status: "success" | "error"; time: string }[]
     >("NOTIFICATIONS") || [];
+
+  const {
+    trendingTopics,
+    communities,
+    threadInsights,
+    isLoading: insightsLoading,
+    error: insightsError,
+    refreshInsights,
+  } = useInsights();
 
   const handleFollow = (id: string) => {
     dispatch(followRequestAction(id));
@@ -198,6 +209,15 @@ const RightTweetSidebar = ({
             ))}
         </div>
       </div>
+
+      <InsightsPanel
+        trendingTopics={trendingTopics}
+        communities={communities}
+        threadInsights={threadInsights}
+        isLoading={insightsLoading}
+        error={insightsError}
+        onRefresh={refreshInsights}
+      />
     </div>
   );
 };

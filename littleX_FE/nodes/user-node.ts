@@ -7,4 +7,5 @@ export interface UserNode {
   expiration: number;
   state: string;
   avatar: string;
+  profile_username?: string;
 }

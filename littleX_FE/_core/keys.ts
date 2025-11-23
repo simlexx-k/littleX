@@ -2,6 +2,7 @@ export const APP_KEYS = {
   TOKEN: "TOKEN",
   USER: "USER",
   NOTIFICATIONS: "NOTIFICATIONS",
+  SESSION_EXPIRY: "SESSION_EXPIRY",
 };
 
 export const APP_ROUTES = {

@@ -7,6 +7,16 @@ glob vectorizer = TfidfVectorizer();
 
 def search_tweets(query: str, tweet:str) -> int;
 
+def hash_password(password: str) -> str;
+def verify_password(password: str, hashed: str) -> bool;
+def generate_token() -> str;
+def generate_verification_code() -> str;
+def make_expiry(hours: int) -> dict;
+def parse_iso_timestamp(timestamp: str) -> datetime;
+def build_user_payload(user_node: UserAccount) -> dict;
+def find_user_by_email(email: str) -> list;
+def find_user_by_code(code: str) -> list;
+
 node Profile {
     has username: str = "";
 
@@ -58,21 +68,84 @@ node Comment {
     can delete with remove_comment entry;
 }
 
+node UserAccount {
+    has email: str = "";
+    has password_hash: str = "";
+    has token: str = "";
+    has token_expiry: str = "";
+    has expiration: float = 0.0;
+    has verification_code: str = "";
+    has verification_expires: str = "";
+    has verified: bool = False;
+    has state: str = "active";
+    has avatar: str = "";
+    has profile_id: str = "";
+    has profile_username: str = "";
+}
+
+node Topic {
+    has name: str;
+    has mention_count: int = 0;
+    has trending_score: float = 0.0;
+    has last_updated: str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S");
+}
+
+node Community {
+    has name: str;
+    has description: str = "";
+    has tags: list = [];
+    has member_count: int = 0;
+    has engagement_trend: float = 0.0;
+    has created_at: str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S");
+}
+
+node ConversationThread {
+    has title: str = "";
+    has participants: list = [];
+    has summary: str = "";
+    has engagement_score: float = 0.0;
+    has last_activity: str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S");
+}
+
+node EngagementMetric {
+    has name: str = "global";
+    has likes: int = 0;
+    has comments: int = 0;
+    has threads: int = 0;
+    has updated_at: str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S");
+}
+
 edge Follow {}
 
 edge Like {}
 
 edge Post {}
 
+edge TopicAffinity {}
+edge Membership {}
+edge ThreadFlow {}
+
 walker visit_profile {
     can visit_profile with `root entry;
 }
 
-walker update_profile(visit_profile) {
+walker update_profile {
     has new_username: str;
+    has token: str = "";
+    obj __specs__ {
+        static has auth: bool = False;
+    }
+    can update_profile_entry with `root entry;
 }
 
-walker get_profile(visit_profile) {}
+walker get_profile {
+    has username: str = "";
+    has token: str = "";
+    obj __specs__ {
+        static has auth: bool = False;
+    }
+    can get_profile with `root entry;
+}
 
 walker load_user_profiles {
     obj __specs__ {
@@ -83,15 +156,96 @@ walker load_user_profiles {
     can report_profiles with exit;
 }
 
+walker register_user {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
+    has email: str;
+    has password: str;
+    has username: str = "";
+    has result: dict = {};
+
+    can register with `root entry;
+}
+
+walker login_user {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
+    has email: str;
+    has password: str;
+    has result: dict = {};
+
+    can login with `root entry;
+}
+
+walker change_password {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
+    has email: str;
+    has current_password: str;
+    has new_password: str;
+    has result: dict = {};
+
+    can change with `root entry;
+}
+
+walker send_verification_code {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
+    has email: str;
+    has result: dict = {};
+
+    can send with `root entry;
+}
+
+walker verify_user {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
+    has email: str;
+    has code: str;
+    has result: dict = {};
+
+    can verify with `root entry;
+}
+
+walker forgot_password {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
+    has email: str;
+    has result: dict = {};
+
+    can remind with `root entry;
+}
+
+walker reset_password {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
+    has code: str;
+    has new_password: str;
+    has result: dict = {};
+
+    can reset with `root entry;
+}
+
 walker follow_request {}
 
 walker un_follow_request {}
 
-walker create_tweet(visit_profile) {
+walker create_tweet {
     has content: str;
     has ai_assisted: bool = False;
+    has token: str = "";
+    obj __specs__ {
+        static has auth: bool = False;
+    }
 
-    can tweet with Profile entry;
+    can tweet with `root entry;
 }
 
 walker update_tweet {
@@ -115,13 +269,51 @@ walker update_comment {
 walker remove_comment {}
 
 walker load_feed(visit_profile) {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
     has search_query: str = "";
+    has token: str = "";
     has results: list = [];
 
     can load with Profile entry;
-
+    can process_tweet with Tweet entry;
     can report_feed with exit;
 
+}
+
+walker detect_trending_topics {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
+    has min_mentions: int = 2;
+    has results: list = [];
+    can analyze with `root entry;
+    can report_trends with exit;
+}
+
+walker discover_communities {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
+    has focus_topic: str = "";
+    has min_members: int = 2;
+    has results: list = [];
+    can analyze with `root entry;
+    can report_discoveries with exit;
+}
+
+walker thread_insights {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
+    has thread_id: str = "";
+    has summary: str = "";
+    has engagement_score: float = 0.0;
+    has participants: list = [];
+    has results: list = [];
+    can analyze with `root entry;
+    can report_summary with exit;
 }
 
 # AI Feature Walkers
@@ -144,6 +336,9 @@ def improve_ai_text(text: str, style: str) -> dict;
 def autocomplete_ai(partial: str, num: int) -> list;
 
 walker ai_suggest_content {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
     has context: str;
     has tone: str = "casual";
     has num_suggestions: int = 3;
@@ -152,6 +347,9 @@ walker ai_suggest_content {
 }
 
 walker ai_generate_hashtags {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
     has content: str;
     has num_hashtags: int = 5;
     
@@ -159,6 +357,9 @@ walker ai_generate_hashtags {
 }
 
 walker ai_improve_text {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
     has text: str;
     has style: str = "casual";
     
@@ -166,6 +367,9 @@ walker ai_improve_text {
 }
 
 walker ai_autocomplete {
+    obj __specs__ {
+        static has auth: bool = False;
+    }
     has partial: str;
     has num_suggestions: int = 3;
     
